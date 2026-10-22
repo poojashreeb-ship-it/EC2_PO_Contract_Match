@@ -13,6 +13,14 @@ def get_llm() -> LLM:
             model="gemini/gemini-2.0-flash",
             api_key=os.environ["GEMINI_API_KEY"],
         )
+    if os.environ.get("MISTRAL_API_KEY"):
+        # crewai has no native Mistral provider, but Mistral's API is
+        # OpenAI-compatible (chat completions).
+        return LLM(
+            model="openai/mistral-large-latest",
+            api_key=os.environ["MISTRAL_API_KEY"],
+            base_url="https://api.mistral.ai/v1",
+        )
     if os.environ.get("OPENROUTER_API_KEY"):
         return LLM(
             model="openrouter/nvidia/nemotron-3-ultra-550b-a55b:free",
@@ -20,5 +28,5 @@ def get_llm() -> LLM:
             base_url="https://openrouter.ai/api/v1",
         )
     raise EnvironmentError(
-        "Set ANTHROPIC_API_KEY, GEMINI_API_KEY, or OPENROUTER_API_KEY before running."
+        "Set ANTHROPIC_API_KEY, GEMINI_API_KEY, MISTRAL_API_KEY, or OPENROUTER_API_KEY before running."
     )

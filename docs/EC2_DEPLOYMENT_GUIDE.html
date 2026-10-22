@@ -150,7 +150,7 @@ E:\POContract\app
              │  RFC (pyrfc + C:\sap\nwrfcsdk — shared with AP Engine)
              ▼
         SAP S/4HANA A4F  65.2.76.131 : 3357   (instance 57 → gateway port 33‹57›)
-        LLM API (OpenRouter / Anthropic / Gemini)  ← extraction + validation crews
+        LLM API (Mistral / OpenRouter / Anthropic / Gemini)  ← extraction + validation
 
 Browser  http://13.207.66.222:8091</div>
     <table>
@@ -189,7 +189,7 @@ Browser  http://13.207.66.222:8091</div>
       <tr><td>Python 3.12 (3.12.0 installed), SAP NW RFC SDK + <code>SAPNWRFC_HOME</code>, VC++ 2013, NSSM, Nginx with <code>include conf.d/*.conf;</code></td><td><b>Already done</b> during the AP Engine deployment — only verified in Step 2</td></tr>
       <tr><td><b>SAP firewall</b> allows 13.207.66.222 → 65.2.76.131 TCP 3357</td><td><b>Already done</b> for the AP Engine (the same server IP and port) — verified in Step 2, no new request to SAP Basis needed</td></tr>
       <tr><td><b>SAP RFC user + password</b> (RPA / client 100)</td><td>Your laptop's <code>config\sap_config.json</code> or <code>.env</code> (<code>SAP_RFC_*</code>) — entered in Settings (Step 9)</td></tr>
-      <tr><td><b>LLM API key</b> (exactly one of OpenRouter / Anthropic / Gemini)</td><td>Your laptop's <code>.env</code> — the app cannot read PDFs without it</td></tr>
+      <tr><td><b>LLM API key</b> (Mistral — or one of OpenRouter / Anthropic / Gemini)</td><td>Your laptop's <code>.env</code> — the app cannot read PDFs without it</td></tr>
       <tr><td><b>Admin access</b> on GitHub repo <code>poojashreeb-ship-it/EC2_PO_Contract_Match</code></td><td>Needed for the runner (Step 7) and the secret (Step 5). It is a personal repo — the owner (poojashreeb-ship-it) must do these steps, or add you as an admin collaborator.</td></tr>
       <tr><td><b>Node.js 20.19+</b> on the server</td><td>Probably already there for Avagama (PM2) — checked in Step 3</td></tr>
     </table>
@@ -268,8 +268,9 @@ mkdir E:\POContract\actions-runner -Force</pre>
     <p>Keep this value — you'll paste it into the app's Settings in Step 9. Use a new value, not the one from your laptop.</p>
 
     <h4>5b — The .env content</h4>
-    <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button># ── LLM — set exactly ONE (same key as on your laptop) ─────────
-OPENROUTER_API_KEY=&lt;key&gt;
+    <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button># ── LLM — set exactly ONE (Mistral: mistral-large-latest) ──────
+MISTRAL_API_KEY=&lt;key&gt;
+# OPENROUTER_API_KEY=
 # ANTHROPIC_API_KEY=
 # GEMINI_API_KEY=
 

@@ -39,6 +39,9 @@ jobs:
           if (!(Test-Path $env:CI_VENV)) { & $env:PYTHON_EXE -m venv $env:CI_VENV }
           & "$env:CI_VENV\Scripts\python.exe" -m pip install -q -r requirements.txt
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          # The sample PDFs the PDF reader tests use are gitignored (*.pdf).
+          & "$env:CI_VENV\Scripts\python.exe" scripts\generate_samples.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & "$env:CI_VENV\Scripts\python.exe" -m pytest -q
           exit $LASTEXITCODE
 

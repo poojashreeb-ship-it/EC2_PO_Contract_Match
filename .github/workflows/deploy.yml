@@ -69,15 +69,15 @@ jobs:
 
       - name: Write .env
         env:
-          PO_ENV_FILE: ${{ secrets.PO_ENV_FILE }}
+          ENV_FILE: ${{ secrets.ENV_FILE }}
         run: |
-          if ($env:PO_ENV_FILE) {
-            [IO.File]::WriteAllText("$env:APP_DIR\.env", $env:PO_ENV_FILE, (New-Object System.Text.UTF8Encoding $false))
-            "Wrote .env from secret PO_ENV_FILE"
+          if ($env:ENV_FILE) {
+            [IO.File]::WriteAllText("$env:APP_DIR\.env", $env:ENV_FILE, (New-Object System.Text.UTF8Encoding $false))
+            "Wrote .env from secret ENV_FILE"
           } elseif (Test-Path "$env:APP_DIR\.env") {
             "Keeping the server's .env"
           } else {
-            Write-Error "No .env: set the secret PO_ENV_FILE or create $env:APP_DIR\.env"
+            Write-Error "No .env: set the secret ENV_FILE or create $env:APP_DIR\.env"
             exit 1
           }
 

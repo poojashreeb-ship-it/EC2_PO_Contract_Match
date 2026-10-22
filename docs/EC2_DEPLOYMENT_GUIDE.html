@@ -137,7 +137,7 @@
   <div class="phase-header"><div class="phase-number">📋</div><div><h2>Architecture &amp; ports</h2><p>What runs where, next to the AP Engine</p></div></div>
   <div class="step"><div class="step-header" onclick="toggle(this)"><div class="step-num">i</div><h3>How it fits on the RPA server</h3><span class="step-arrow">▼</span></div>
   <div class="step-body">
-<div class="flow">git push → GitHub repo  poojashreeb-ship-it/Po-Contract-Validation  (branch master)
+<div class="flow">git push → GitHub repo  poojashreeb-ship-it/EC2_PO_Contract_Match  (branch master)
         │
         ▼  .github/workflows/deploy.yml
 GitHub Actions runner #4 on EC2  (label "po-contract", folder E:\POContract\actions-runner)
@@ -190,7 +190,7 @@ Browser  http://13.207.66.222:8091</div>
       <tr><td><b>SAP firewall</b> allows 13.207.66.222 → 65.2.76.131 TCP 3357</td><td><b>Already done</b> for the AP Engine (the same server IP and port) — verified in Step 2, no new request to SAP Basis needed</td></tr>
       <tr><td><b>SAP RFC user + password</b> (RPA / client 100)</td><td>Your laptop's <code>config\sap_config.json</code> or <code>.env</code> (<code>SAP_RFC_*</code>) — entered in Settings (Step 9)</td></tr>
       <tr><td><b>LLM API key</b> (exactly one of OpenRouter / Anthropic / Gemini)</td><td>Your laptop's <code>.env</code> — the app cannot read PDFs without it</td></tr>
-      <tr><td><b>Admin access</b> on GitHub repo <code>poojashreeb-ship-it/Po-Contract-Validation</code></td><td>Needed for the runner (Step 7) and the secret (Step 5). It is a personal repo — the owner (PoojashreeB) must do these steps, or add you as an admin collaborator.</td></tr>
+      <tr><td><b>Admin access</b> on GitHub repo <code>poojashreeb-ship-it/EC2_PO_Contract_Match</code></td><td>Needed for the runner (Step 7) and the secret (Step 5). It is a personal repo — the owner (poojashreeb-ship-it) must do these steps, or add you as an admin collaborator.</td></tr>
       <tr><td><b>Node.js 20.19+</b> on the server</td><td>Probably already there for Avagama (PM2) — checked in Step 3</td></tr>
     </table>
     <div class="danger"><span>🚨</span><span><b>Always use PowerShell as Administrator</b> on the server (<kbd>Win</kbd> → type PowerShell → right-click → Run as Administrator). Run one block at a time and check the result before moving on.</span></div>
@@ -253,7 +253,7 @@ mkdir E:\POContract\actions-runner -Force</pre>
     site on 8091 and adds the Windows Firewall rule. Each of these is skipped on later runs.
     <table style="margin:10px 0 4px">
       <tr><th>Manual (once)</th><th>Automatic on every push</th></tr>
-      <tr><td>Steps 1–4 (checks, folders)<br><b>.env</b> (Step 5: GitHub secret <code>PO_ENV_FILE</code> or a file on the server)<br>
+      <tr><td>Steps 1–4 (checks, folders)<br><b>.env</b> (Step 5: GitHub secret <code>ENV_FILE</code> or a file on the server)<br>
         Step 6 (AWS security group, port 8091)<br>Step 7 (the runner)<br>Step 9 (Settings in the browser: API key + SAP)</td>
         <td>Run the Python tests<br>Build the React frontend<br>Stop service → copy code to <code>E:\POContract\app</code><br>
         venv + <code>pip install</code> + <code>import pyrfc</code> check<br>NSSM service, Nginx site, firewall rule (first run)<br>Start + health check (+ SAP :3357 reachability warning)</td></tr>
@@ -261,7 +261,7 @@ mkdir E:\POContract\actions-runner -Force</pre>
     Order: 1–4 → 5 → 6 → 7 → 8 (push) → 9 → 10.
   </div>
 
-  <div class="step" id="s5"><div class="step-header" onclick="toggle(this)"><div class="step-num">5</div><h3>The server .env — GitHub secret PO_ENV_FILE (recommended) or a file</h3><span class="where">GitHub or EC2</span><span class="step-arrow">▼</span></div>
+  <div class="step" id="s5"><div class="step-header" onclick="toggle(this)"><div class="step-num">5</div><h3>The server .env — GitHub secret ENV_FILE (recommended) or a file</h3><span class="where">GitHub or EC2</span><span class="step-arrow">▼</span></div>
   <div class="step-body">
     <h4>5a — Generate the API key (shared secret for the frontend)</h4>
     <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button>py -3.12 -c "import secrets; print(secrets.token_urlsafe(32))"</pre>
@@ -290,8 +290,8 @@ OTEL_SDK_DISABLED=true</pre>
     <h4>5c — Put it in place (pick ONE)</h4>
     <table>
       <tr><th>Option</th><th>How</th></tr>
-      <tr><td><b>A — GitHub secret</b> (recommended, like <code>AP_ENV_FILE</code>)</td><td>GitHub → <b>poojashreeb-ship-it/Po-Contract-Validation</b> → Settings → Secrets and variables → Actions → <b>New repository secret</b> →
-        Name <code>PO_ENV_FILE</code> → paste the whole block from 5b (one setting per line) → Add secret. Every deploy rewrites the server's <code>.env</code> from it.</td></tr>
+      <tr><td><b>A — GitHub secret</b> (recommended, like <code>AP_ENV_FILE</code>)</td><td>GitHub → <b>poojashreeb-ship-it/EC2_PO_Contract_Match</b> → Settings → Secrets and variables → Actions → <b>New repository secret</b> →
+        Name <code>ENV_FILE</code> → paste the whole block from 5b (one setting per line) → Add secret. Every deploy rewrites the server's <code>.env</code> from it.</td></tr>
       <tr><td><b>B — file on the server</b></td><td>Notepad as Administrator → paste 5b → Save As <code>E:\POContract\app\.env</code>, type <b>All Files</b>, encoding <b>UTF-8</b>.
         Then <code>dir E:\POContract\app\.env</code> to make sure it isn't <code>.env.txt</code>. Deploys never overwrite it.</td></tr>
     </table>
@@ -316,7 +316,7 @@ OTEL_SDK_DISABLED=true</pre>
   <div class="step-body">
     <div class="info"><span>ℹ</span><span>A self-hosted runner belongs to one repository, so the AP Engine's runner can't be reused — this repo needs its own (in its own folder, as its own Windows service).</span></div>
     <h4>7a — Get a registration token</h4>
-    <p>GitHub → <b>poojashreeb-ship-it/Po-Contract-Validation</b> → Settings → Actions → Runners → <b>New self-hosted runner</b> → Windows / x64.
+    <p>GitHub → <b>poojashreeb-ship-it/EC2_PO_Contract_Match</b> → Settings → Actions → Runners → <b>New self-hosted runner</b> → Windows / x64.
     Copy only the token after <code>--token</code> in the "Configure" block. <b>It expires after 1 hour.</b></p>
     <p>Paste it here — the commands below fill in automatically (it stays in this page only):</p>
     <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
@@ -337,7 +337,7 @@ dir *.zip</pre>
 [System.IO.Compression.ZipFile]::ExtractToDirectory("$PWD/actions-runner-win-x64-2.333.1.zip", "$PWD")</pre>
 
     <h4>7d — Configure as a Windows service</h4>
-    <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button>./config.cmd --url https://github.com/poojashreeb-ship-it/Po-Contract-Validation --token <span class="tok">PASTE_TOKEN_HERE</span> --name po-contract-ec2 --labels po-contract --work _work --runasservice --windowslogonaccount "NT AUTHORITY\SYSTEM" --unattended</pre>
+    <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button>./config.cmd --url https://github.com/poojashreeb-ship-it/EC2_PO_Contract_Match --token <span class="tok">PASTE_TOKEN_HERE</span> --name po-contract-ec2 --labels po-contract --work _work --runasservice --windowslogonaccount "NT AUTHORITY\SYSTEM" --unattended</pre>
     <div class="danger"><span>🚨</span><span><b>Do not run <code>./run.cmd</code></b>. <code>--runasservice</code> installs the runner as an auto-starting Windows service instead.</span></div>
     <table>
       <tr><th>Option</th><th>Why</th></tr>
@@ -367,7 +367,7 @@ dir *.zip</pre>
       <tr><td>3</td><td>Build frontend</td><td><code>npm ci</code> + <code>npm run build</code> → <code>frontend\dist</code></td></tr>
       <tr><td>4</td><td>Stop the app</td><td><code>nssm stop po-contract-api</code>, waits, frees port 8210</td></tr>
       <tr><td>5</td><td>Copy</td><td><code>robocopy /MIR</code> to <code>E:\POContract\app</code> — keeps <code>.env</code>, <code>.venv</code>, <code>config\</code> (SAP settings) and <code>output\</code> (reports)</td></tr>
-      <tr><td>6</td><td>Write .env</td><td>From secret <code>PO_ENV_FILE</code> if set, else keeps the server's file, else fails</td></tr>
+      <tr><td>6</td><td>Write .env</td><td>From secret <code>ENV_FILE</code> if set, else keeps the server's file, else fails</td></tr>
       <tr><td>7</td><td>Python environment</td><td>Creates <code>.venv</code> (Python 3.12) if missing, installs <code>requirements.txt</code> + <code>pyrfc==3.3.1</code>, checks <code>import pyrfc</code> loads the SAP SDK</td></tr>
       <tr><td>8</td><td>One-time setup</td><td>NSSM service, Nginx site (<code>nginx -t</code> first; a bad file is reverted, other sites unaffected), firewall rule 8091</td></tr>
       <tr><td>9</td><td>Start</td><td><code>nssm start po-contract-api</code> (runs even if an earlier step failed)</td></tr>
@@ -376,13 +376,15 @@ dir *.zip</pre>
     <h4>Push it</h4>
     <p>On your laptop, in the project folder (<code>.github</code> and <code>deploy</code> are new, so add them explicitly):</p>
     <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button><span class="c"># once: point a remote at the deployment repo (the local clone's origin is the old repo)</span>
-git remote add validation https://github.com/poojashreeb-ship-it/Po-Contract-Validation.git
-git fetch validation
+git remote add ec2 https://github.com/poojashreeb-ship-it/EC2_PO_Contract_Match.git
 
 git add .github/workflows/deploy.yml deploy/ec2/po-contract.conf docs/EC2_DEPLOYMENT_GUIDE.html
 git status        <span class="c"># make sure .env and config/sap_config.json are NOT listed</span>
 git commit -m "EC2 deployment: workflow, Nginx site on port 8091, deployment guide"
-git push validation master</pre>
+
+<span class="c"># the repo starts empty: push the current local branch as its master</span>
+git push ec2 HEAD:master</pre>
+    <p>Later pushes: <code>git push ec2 HEAD:master</code> again (or work on a local <code>master</code> branch and <code>git push ec2 master</code>).</p>
     <p>GitHub → <b>Actions</b> → "Deploy PO Contract Agent" → all steps green. The first run takes longer (CrewAI and its dependencies install twice: test venv and app venv).
     Re-run any time with <b>Run workflow</b>.</p>
     <div class="note"><span>⚠</span><span>The tests run on the server. If they fail on Python 3.12 but pass on your laptop (3.11), the run stops before deploying — read the "Run tests" log.</span></div>
@@ -438,7 +440,7 @@ Invoke-RestMethod http://127.0.0.1:8091/api/sap/po-record -Method Post -Headers 
   <div class="step"><div class="step-header" onclick="toggle(this)"><div class="step-num">M</div><h3>Clone, venv, test run, service, Nginx, firewall</h3><span class="where">EC2 · PowerShell (Admin)</span><span class="step-arrow">▼</span></div>
   <div class="step-body collapsed">
     <h4>M1 — Code + frontend build</h4>
-    <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button>git clone https://github.com/poojashreeb-ship-it/Po-Contract-Validation.git E:\POContract\src
+    <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button>git clone https://github.com/poojashreeb-ship-it/EC2_PO_Contract_Match.git E:\POContract\src
 robocopy E:\POContract\src E:\POContract\app /E /XD .git
 cd E:\POContract\app\frontend
 npm ci
@@ -487,7 +489,7 @@ Invoke-WebRequest http://localhost:8091/api/openapi.json -UseBasicParsing | Sele
       <li><input type="checkbox"><span><code>netstat</code> shows 8091 / 8210 free (before the first deploy)</span></li>
       <li><input type="checkbox"><span><code>Test-NetConnection 65.2.76.131 -Port 3357</code> → <b>True</b></span></li>
       <li><input type="checkbox"><span><code>node -v</code> ≥ 20.19 for all users</span></li>
-      <li><input type="checkbox"><span><code>PO_ENV_FILE</code> secret (or server <code>.env</code>) with an LLM key and <code>API_KEY</code></span></li>
+      <li><input type="checkbox"><span><code>ENV_FILE</code> secret (or server <code>.env</code>) with an LLM key and <code>API_KEY</code></span></li>
       <li><input type="checkbox"><span>AWS security group allows TCP 8091</span></li>
       <li><input type="checkbox"><span>Runner <b>po-contract-ec2</b> is <b>Idle</b> in GitHub</span></li>
       <li><input type="checkbox"><span>Push to <code>master</code> → Actions run <b>green</b>, no SAP warning in the health check</span></li>
@@ -522,8 +524,8 @@ Test-NetConnection 65.2.76.131 -Port 3357</pre>
     <table>
       <tr><th>Task</th><th>How</th></tr>
       <tr><td>Redeploy without a code change</td><td>GitHub → Actions → Deploy PO Contract Agent → <b>Run workflow</b></td></tr>
-      <tr><td>Roll back</td><td><code>git revert &lt;bad commit&gt;</code> → <code>git push validation master</code></td></tr>
-      <tr><td>Change LLM key / API key</td><td>Edit the <code>PO_ENV_FILE</code> secret → Run workflow (or edit the server <code>.env</code> → <code>nssm restart po-contract-api</code>)</td></tr>
+      <tr><td>Roll back</td><td><code>git revert &lt;bad commit&gt;</code> → <code>git push ec2 HEAD:master</code></td></tr>
+      <tr><td>Change LLM key / API key</td><td>Edit the <code>ENV_FILE</code> secret → Run workflow (or edit the server <code>.env</code> → <code>nssm restart po-contract-api</code>)</td></tr>
       <tr><td>Change SAP user / password</td><td>App → Settings → SAP → Save (no restart)</td></tr>
       <tr><td>Clean up old reports</td><td><code>E:\POContract\app\output\</code> — JSON + PDF per validation</td></tr>
     </table>

@@ -1,0 +1,161 @@
+name: Deploy PO Contract Agent
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-po-contract
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    # Runner #4 on the RPA server (E:\POContract\actions-runner); the label
+    # keeps this job off the AP Engine and Avagama runners.
+    runs-on: [self-hosted, windows, po-contract]
+    defaults:
+      run:
+        shell: powershell
+    env:
+      APP_DIR: E:\POContract\app
+      CI_VENV: E:\POContract\ci-venv
+      LOG_DIR: E:\POContract\logs
+      SERVICE: po-contract-api
+      APP_PORT: '8210'
+      PUBLIC_PORT: '8091'
+      PY_VERSION: '3.12'
+      SAPNWRFC_HOME: C:\sap\nwrfcsdk
+      NGINX_DIR: C:\nginx\nginx-1.30.0
+    steps:
+      - uses: actions/checkout@v4
+
+      # A venv outside the checkout, so it survives checkout's clean and
+      # dependencies aren't reinstalled from scratch on every run.
+      - name: Run tests
+        run: |
+          if (!(Test-Path $env:CI_VENV)) { py -$env:PY_VERSION -m venv $env:CI_VENV }
+          & "$env:CI_VENV\Scripts\python.exe" -m pip install -q -r requirements.txt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & "$env:CI_VENV\Scripts\python.exe" -m pytest -q
+          exit $LASTEXITCODE
+
+      - name: Build frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm run build
+          exit $LASTEXITCODE
+
+      - name: Stop the app
+        run: |
+          if (Get-Service $env:SERVICE -ErrorAction SilentlyContinue) {
+            nssm stop $env:SERVICE | Out-Null
+            $deadline = (Get-Date).AddSeconds(30)
+            while ((Get-Service $env:SERVICE).Status -ne 'Stopped' -and (Get-Date) -lt $deadline) { Start-Sleep 1 }
+          }
+          # Anything else still holding the port, e.g. a manual test run.
+          Get-NetTCPConnection -LocalPort $env:APP_PORT -State Listen -ErrorAction SilentlyContinue |
+            ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }
+          exit 0
+
+      # .env, config\ (SAP/Outlook settings saved from the UI) and output\
+      # live only on the server, so they're excluded from the copy and purge.
+      - name: Copy to app folder
+        run: |
+          robocopy . $env:APP_DIR /MIR /XD .git .venv node_modules config output /XF .env /NFL /NDL /NP
+          if ($LASTEXITCODE -lt 8) { exit 0 } else { exit $LASTEXITCODE }
+
+      - name: Write .env
+        env:
+          PO_ENV_FILE: ${{ secrets.PO_ENV_FILE }}
+        run: |
+          if ($env:PO_ENV_FILE) {
+            [IO.File]::WriteAllText("$env:APP_DIR\.env", $env:PO_ENV_FILE, (New-Object System.Text.UTF8Encoding $false))
+            "Wrote .env from secret PO_ENV_FILE"
+          } elseif (Test-Path "$env:APP_DIR\.env") {
+            "Keeping the server's .env"
+          } else {
+            Write-Error "No .env: set the secret PO_ENV_FILE or create $env:APP_DIR\.env"
+            exit 1
+          }
+
+      - name: Python environment
+        working-directory: ${{ env.APP_DIR }}
+        run: |
+          if (!(Test-Path .venv)) { py -$env:PY_VERSION -m venv .venv }
+          .venv\Scripts\python.exe -m pip install -q -r requirements.txt pyrfc==3.3.1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $env:PATH = "$env:SAPNWRFC_HOME\lib;$env:PATH"
+          .venv\Scripts\python.exe -c "import pyrfc; print('pyrfc', pyrfc.__version__)"
+          exit $LASTEXITCODE
+
+      # Each part is skipped when it already exists.
+      - name: One-time setup (service, Nginx site, firewall)
+        run: |
+          New-Item -ItemType Directory -Force $env:LOG_DIR | Out-Null
+
+          if (!(Get-Service $env:SERVICE -ErrorAction SilentlyContinue)) {
+            nssm install $env:SERVICE "$env:APP_DIR\.venv\Scripts\python.exe" "-m uvicorn api.main:app --host 127.0.0.1 --port $env:APP_PORT"
+            nssm set $env:SERVICE AppDirectory $env:APP_DIR
+            nssm set $env:SERVICE AppEnvironmentExtra "SAPNWRFC_HOME=$env:SAPNWRFC_HOME" "PYTHONIOENCODING=utf-8" "PYTHONUTF8=1"
+            nssm set $env:SERVICE AppStdout "$env:LOG_DIR\po-contract.out.log"
+            nssm set $env:SERVICE AppStderr "$env:LOG_DIR\po-contract.err.log"
+            nssm set $env:SERVICE AppRotateFiles 1
+            nssm set $env:SERVICE AppRotateBytes 10485760
+            nssm set $env:SERVICE Start SERVICE_AUTO_START
+            nssm set $env:SERVICE DisplayName "PO Contract Agent (SAP PO validation)"
+            "Created service $env:SERVICE"
+          }
+
+          $site = "$env:NGINX_DIR\conf\conf.d\po-contract.conf"
+          $src = "$env:APP_DIR\deploy\ec2\po-contract.conf"
+          if (!(Test-Path $site) -or (Get-FileHash $site).Hash -ne (Get-FileHash $src).Hash) {
+            $backup = "$site.bak"
+            if (Test-Path $site) { Copy-Item $site $backup -Force }
+            Copy-Item $src $site -Force
+            Push-Location $env:NGINX_DIR
+            .\nginx.exe -t
+            if ($LASTEXITCODE -ne 0) {
+              # Put back what was there, so the other sites keep working.
+              if (Test-Path $backup) { Move-Item $backup $site -Force } else { Remove-Item $site }
+              Pop-Location
+              Write-Error "nginx -t failed for po-contract.conf - change reverted, other sites untouched"
+              exit 1
+            }
+            .\nginx.exe -s reload
+            if ($LASTEXITCODE -ne 0) { nssm restart nginx }
+            Pop-Location
+            "Installed Nginx site on port $env:PUBLIC_PORT"
+          }
+
+          $rule = "PO Contract $env:PUBLIC_PORT"
+          if (!(Get-NetFirewallRule -DisplayName $rule -ErrorAction SilentlyContinue)) {
+            New-NetFirewallRule -DisplayName $rule -Direction Inbound -Protocol TCP -LocalPort $env:PUBLIC_PORT -Action Allow | Out-Null
+            "Added firewall rule $rule"
+          }
+
+      # Runs even if an earlier step failed, so the app comes back.
+      - name: Start the app
+        if: always()
+        run: |
+          if (Get-Service $env:SERVICE -ErrorAction SilentlyContinue) { nssm start $env:SERVICE }
+          exit 0
+
+      - name: Health check
+        run: |
+          $ok = $false
+          for ($i = 0; $i -lt 45 -and -not $ok; $i++) {
+            Start-Sleep 2
+            try { Invoke-WebRequest "http://127.0.0.1:$env:PUBLIC_PORT/api/openapi.json" -UseBasicParsing -TimeoutSec 5 | Out-Null; $ok = $true } catch {}
+          }
+          if (-not $ok) {
+            Write-Error "App not answering through Nginx on port $env:PUBLIC_PORT - see $env:LOG_DIR\po-contract.err.log"
+            exit 1
+          }
+          "App answers on http://127.0.0.1:$env:PUBLIC_PORT/api"
+
+          $sap = Test-NetConnection 65.2.76.131 -Port 3357 -WarningAction SilentlyContinue
+          if ($sap.TcpTestSucceeded) { "SAP 65.2.76.131:3357 reachable" }
+          else { "::warning::SAP 65.2.76.131:3357 is not reachable from this server - PO lookups will fail" }

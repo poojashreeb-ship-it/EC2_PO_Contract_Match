@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>PO Contract Agent — EC2 Deployment Guide</title>
+<style>
+  :root {
+    --bg:#0f1117; --surface:#1a1d27; --surface2:#22263a; --border:#2e3350;
+    --accent:#5b8dee; --accent2:#7c3aed; --green:#22c55e; --yellow:#f59e0b; --red:#ef4444;
+    --text:#e2e8f0; --muted:#8892a4; --code-bg:#0d1117;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--bg); color:var(--text); line-height:1.7; }
+  .sidebar { position:fixed; top:0; left:0; width:270px; height:100vh; background:var(--surface);
+    border-right:1px solid var(--border); overflow-y:auto; padding:24px 0; z-index:100; }
+  .sidebar-logo { padding:0 20px 18px; border-bottom:1px solid var(--border); margin-bottom:14px; }
+  .sidebar-logo h2 { font-size:16px; color:var(--accent); font-weight:700; }
+  .sidebar-logo p { font-size:11px; color:var(--muted); margin-top:4px; }
+  .nav-section { padding:10px 20px 4px; font-size:10px; text-transform:uppercase; letter-spacing:1px; color:var(--muted); font-weight:600; }
+  .nav-link { display:block; padding:6px 20px; font-size:13px; color:var(--muted); text-decoration:none; border-left:2px solid transparent; }
+  .nav-link:hover { color:var(--text); background:var(--surface2); border-left-color:var(--accent); }
+  .main { margin-left:270px; padding:44px 56px; max-width:1120px; }
+  .hero { background:linear-gradient(135deg,var(--surface2),var(--surface)); border:1px solid var(--border);
+    border-radius:12px; padding:34px 40px; margin-bottom:44px; }
+  .hero h1 { font-size:27px; font-weight:800; color:#fff; margin-bottom:8px; }
+  .hero p { color:var(--muted); font-size:15px; max-width:760px; margin:0; }
+  .badges { display:flex; flex-wrap:wrap; gap:8px; margin-top:18px; }
+  .badge { padding:4px 12px; border-radius:999px; font-size:12px; font-weight:600; border:1px solid; }
+  .b-blue { background:rgba(91,141,238,.12); color:var(--accent); border-color:rgba(91,141,238,.3); }
+  .b-green { background:rgba(34,197,94,.12); color:var(--green); border-color:rgba(34,197,94,.3); }
+  .b-yellow { background:rgba(245,158,11,.12); color:var(--yellow); border-color:rgba(245,158,11,.3); }
+  .b-purple { background:rgba(124,58,237,.12); color:#a78bfa; border-color:rgba(124,58,237,.3); }
+  .phase { margin-bottom:52px; }
+  .phase-header { display:flex; align-items:center; gap:14px; margin-bottom:24px; padding-bottom:14px; border-bottom:1px solid var(--border); }
+  .phase-number { width:40px; height:40px; background:linear-gradient(135deg,var(--accent),var(--accent2)); border-radius:10px;
+    display:flex; align-items:center; justify-content:center; font-size:16px; font-weight:800; color:#fff; flex-shrink:0; }
+  .phase-header h2 { font-size:20px; font-weight:700; color:#fff; }
+  .phase-header p { font-size:13px; color:var(--muted); margin:2px 0 0; }
+  .step { background:var(--surface); border:1px solid var(--border); border-radius:10px; margin-bottom:18px; overflow:hidden; scroll-margin-top:16px; }
+  .step-header { display:flex; align-items:center; gap:12px; padding:14px 20px; background:var(--surface2);
+    border-bottom:1px solid var(--border); cursor:pointer; user-select:none; }
+  .step-num { min-width:28px; height:26px; padding:0 6px; background:var(--accent); border-radius:6px; display:flex; align-items:center;
+    justify-content:center; font-size:12px; font-weight:700; color:#fff; }
+  .step-header h3 { font-size:14px; font-weight:600; color:#fff; flex:1; }
+  .where { font-size:11px; color:var(--muted); border:1px solid var(--border); border-radius:999px; padding:1px 9px; }
+  .step-arrow { color:var(--muted); font-size:12px; transition:transform .2s; }
+  .step-body { padding:20px; }
+  .step-body.collapsed { display:none; }
+  p { margin-bottom:12px; font-size:14px; color:var(--muted); }
+  p b, li b, td b { color:var(--text); }
+  ul.plain, ol.plain { margin:0 0 14px 20px; font-size:14px; color:var(--muted); }
+  ul.plain li, ol.plain li { margin:4px 0; }
+  pre { background:var(--code-bg); border:1px solid var(--border); border-radius:8px; padding:16px 20px; overflow-x:auto;
+    font-family:'Cascadia Code','Consolas',monospace; font-size:13px; line-height:1.6; color:#c9d1d9; margin-bottom:16px; position:relative; }
+  .copy-btn { position:absolute; top:10px; right:10px; background:var(--surface2); border:1px solid var(--border); color:var(--muted);
+    font-size:11px; padding:3px 10px; border-radius:4px; cursor:pointer; }
+  .copy-btn:hover { color:var(--text); border-color:var(--accent); }
+  .c { color:#6a9955; }
+  .note, .info, .danger, .ok { display:flex; gap:10px; border-radius:8px; padding:12px 16px; margin-bottom:16px; font-size:13px; }
+  .note { background:rgba(245,158,11,.08); border:1px solid rgba(245,158,11,.25); color:var(--yellow); }
+  .info { background:rgba(91,141,238,.08); border:1px solid rgba(91,141,238,.25); color:var(--accent); }
+  .danger { background:rgba(239,68,68,.1); border:1px solid rgba(239,68,68,.4); color:#f87171; }
+  .ok { background:rgba(34,197,94,.08); border:1px solid rgba(34,197,94,.3); color:var(--green); }
+  table { width:100%; border-collapse:collapse; margin-bottom:16px; font-size:13px; }
+  th { background:var(--surface2); color:var(--muted); text-align:left; padding:9px 13px; font-size:11px; text-transform:uppercase; letter-spacing:.5px; border-bottom:1px solid var(--border); }
+  td { padding:9px 13px; border-bottom:1px solid var(--border); color:var(--text); vertical-align:top; }
+  tr:last-child td { border-bottom:none; }
+  code { background:var(--code-bg); border:1px solid var(--border); border-radius:4px; padding:1px 6px; font-size:12px;
+    font-family:'Cascadia Code',monospace; color:#79c0ff; }
+  h4 { font-size:13px; font-weight:600; color:var(--accent); text-transform:uppercase; letter-spacing:.5px; margin:20px 0 10px; }
+  h4:first-child { margin-top:0; }
+  .flow { font-family:'Cascadia Code',monospace; font-size:12.5px; color:#c9d1d9; background:var(--code-bg); border:1px solid var(--border);
+    border-radius:8px; padding:16px 20px; margin-bottom:16px; white-space:pre; overflow-x:auto; }
+  .checklist { list-style:none; }
+  .checklist li { display:flex; gap:10px; padding:8px 0; border-bottom:1px solid var(--border); font-size:14px; }
+  .checklist li:last-child { border-bottom:none; }
+  .checklist input { margin-top:4px; width:16px; height:16px; accent-color:var(--green); flex-shrink:0; }
+  .checklist input:checked + span { text-decoration:line-through; color:var(--muted); }
+  .bar { background:var(--surface2); border-radius:999px; height:6px; margin-bottom:6px; overflow:hidden; }
+  .bar div { height:6px; background:linear-gradient(90deg,var(--accent),var(--accent2)); width:0; transition:width .4s; }
+  .bar-label { font-size:12px; color:var(--muted); margin-bottom:18px; }
+  kbd { background:#333; padding:1px 6px; border-radius:4px; font-size:11px; }
+  @media (max-width:900px) { .sidebar { display:none; } .main { margin-left:0; padding:24px 16px; } }
+</style>
+</head>
+<body>
+
+<nav class="sidebar">
+  <div class="sidebar-logo">
+    <h2>PO Contract Agent</h2>
+    <p>RPA Server (EC2) · GitHub Actions · SAP RFC :3357 · port 8091</p>
+  </div>
+  <div class="nav-section">Overview</div>
+  <a class="nav-link" href="#overview">Architecture &amp; ports</a>
+  <a class="nav-link" href="#before">0. Before you start</a>
+  <div class="nav-section">Phase 1 — Server checks (once)</div>
+  <a class="nav-link" href="#s1">1. Ports 8091 / 8210 free</a>
+  <a class="nav-link" href="#s2">2. Reuse AP Engine setup</a>
+  <a class="nav-link" href="#s3">3. Node.js for the frontend</a>
+  <a class="nav-link" href="#s4">4. Create folders</a>
+  <div class="nav-section">Phase 2 — Config (once)</div>
+  <a class="nav-link" href="#s5">5. The .env (secret or file)</a>
+  <a class="nav-link" href="#s6">6. Open port 8091 in AWS</a>
+  <div class="nav-section">Phase 3 — CI/CD</div>
+  <a class="nav-link" href="#s7">7. GitHub runner #4</a>
+  <a class="nav-link" href="#s8">8. deploy.yml + first push</a>
+  <div class="nav-section">Phase 4 — Connect SAP</div>
+  <a class="nav-link" href="#s9">9. Settings: API + SAP :3357</a>
+  <a class="nav-link" href="#s10">10. End-to-end test</a>
+  <div class="nav-section">Manual way</div>
+  <a class="nav-link" href="#manual">M. Deploy by hand</a>
+  <div class="nav-section">Verify &amp; operate</div>
+  <a class="nav-link" href="#checklist">Final checklist</a>
+  <a class="nav-link" href="#ops">Day-to-day commands</a>
+  <a class="nav-link" href="#trouble">Troubleshooting</a>
+</nav>
+
+<main class="main">
+
+<div class="hero">
+  <h1>PO Contract Validation Agent — EC2 Deployment Guide</h1>
+  <p>Deploys the PO &amp; Contract Match agent (Python / FastAPI + CrewAI backend, React frontend) to the <b>same RPA server</b> that already runs the
+  AP Engine, using the same pattern: a GitHub Actions self-hosted runner, Nginx in front, an auto-starting NSSM Windows service, and a live RFC
+  connection to SAP S/4HANA on <b>65.2.76.131 : 3357</b>. Public URL: <b>http://13.207.66.222:8091</b>.</p>
+  <div class="badges">
+    <span class="badge b-blue">🐍 Python 3.12 + FastAPI + CrewAI</span>
+    <span class="badge b-purple">⚛ React (Vite) frontend</span>
+    <span class="badge b-green">🏦 SAP RFC :3357 (reuses AP Engine's SDK)</span>
+    <span class="badge b-yellow">🚀 GitHub Actions runner #4</span>
+    <span class="badge b-blue">🌐 Nginx → port 8091</span>
+  </div>
+</div>
+
+<!-- OVERVIEW -->
+<section class="phase" id="overview">
+  <div class="phase-header"><div class="phase-number">📋</div><div><h2>Architecture &amp; ports</h2><p>What runs where, next to the AP Engine</p></div></div>
+  <div class="step"><div class="step-header" onclick="toggle(this)"><div class="step-num">i</div><h3>How it fits on the RPA server</h3><span class="step-arrow">▼</span></div>
+  <div class="step-body">
+<div class="flow">git push → GitHub repo  poojashreeb-ship-it/Po-Contract-Validation  (branch master)
+        │
+        ▼  .github/workflows/deploy.yml
+GitHub Actions runner #4 on EC2  (label "po-contract", folder E:\POContract\actions-runner)
+        │  tests → build frontend → stop service → copy code → pip install → start → health check
+        ▼
+E:\POContract\app
+   ├─ frontend\dist  (static React build) ◄──────────── Nginx :8091  /       (conf.d\po-contract.conf)
+   └─ Windows service "po-contract-api" (NSSM)  ◄────── Nginx :8091  /api/*  (prefix stripped)
+        uvicorn api.main:app  127.0.0.1:8210
+             │  RFC (pyrfc + C:\sap\nwrfcsdk — shared with AP Engine)
+             ▼
+        SAP S/4HANA A4F  65.2.76.131 : 3357   (instance 57 → gateway port 33‹57›)
+        LLM API (OpenRouter / Anthropic / Gemini)  ← extraction + validation crews
+
+Browser  http://13.207.66.222:8091</div>
+    <table>
+      <tr><th>Port</th><th>Used by</th><th>Public?</th></tr>
+      <tr><td><code>80</code>, <code>3000</code>, <code>5000</code></td><td>Existing apps / Avagama</td><td>yes — untouched</td></tr>
+      <tr><td><code>8090</code></td><td>AP Engine (Nginx)</td><td>yes — untouched</td></tr>
+      <tr><td><code>8200</code></td><td>AP Engine app (uvicorn)</td><td>no — untouched</td></tr>
+      <tr><td><code>8091</code></td><td><b>PO Contract Agent</b> — Nginx: frontend at <code>/</code>, API at <code>/api/</code></td><td><b>yes — open in Step 6</b></td></tr>
+      <tr><td><code>8210</code></td><td>PO Contract API itself (uvicorn), bound to 127.0.0.1 only</td><td>no — internal</td></tr>
+    </table>
+    <table>
+      <tr><th>Item</th><th>Value</th></tr>
+      <tr><td>Deployment folder</td><td><code>E:\POContract\app</code></td></tr>
+      <tr><td>Logs</td><td><code>E:\POContract\logs</code> (<code>po-contract.err.log</code> = the app log)</td></tr>
+      <tr><td>Test venv used by the workflow</td><td><code>E:\POContract\ci-venv</code></td></tr>
+      <tr><td>GitHub runner</td><td><code>E:\POContract\actions-runner</code> (fourth runner, name <code>po-contract-ec2</code>, label <code>po-contract</code>)</td></tr>
+      <tr><td>SAP NW RFC SDK</td><td><code>C:\sap\nwrfcsdk</code> — <b>already installed for the AP Engine, reused</b></td></tr>
+      <tr><td>Windows service</td><td><code>po-contract-api</code> (NSSM)</td></tr>
+      <tr><td>Nginx site file</td><td><code>C:\nginx\nginx-1.30.0\conf\conf.d\po-contract.conf</code> (copy of <code>deploy\ec2\po-contract.conf</code> in the repo)</td></tr>
+      <tr><td>SAP connection settings</td><td><code>E:\POContract\app\config\sap_config.json</code> — written by the app's <b>Settings</b> page, never overwritten by deploys</td></tr>
+    </table>
+    <div class="info"><span>ℹ</span><span><b>Differences from the AP Engine:</b> (1) this app has a separate React frontend, which the workflow builds with Node and Nginx serves as static files;
+    (2) the SAP host / system number / user are <b>not</b> in <code>.env</code> — they are entered once in the app's Settings page (Step 9) and stored in
+    <code>config\sap_config.json</code>; (3) every API call needs the <code>X-API-Key</code> header (the <code>API_KEY</code> from <code>.env</code>), which you enter once in Settings.</span></div>
+  </div></div>
+</section>
+
+<!-- BEFORE -->
+<section class="phase" id="before">
+  <div class="phase-header"><div class="phase-number">0</div><div><h2>Before you start</h2><p>What you need in hand</p></div></div>
+  <div class="step"><div class="step-header" onclick="toggle(this)"><div class="step-num">0</div><h3>Prerequisites</h3><span class="step-arrow">▼</span></div>
+  <div class="step-body">
+    <table>
+      <tr><th>What</th><th>Status / where to get it</th></tr>
+      <tr><td><b>RDP admin login</b> to the RPA server (13.207.66.222)</td><td>Same as for the AP Engine</td></tr>
+      <tr><td>Python 3.12 (3.12.0 installed), SAP NW RFC SDK + <code>SAPNWRFC_HOME</code>, VC++ 2013, NSSM, Nginx with <code>include conf.d/*.conf;</code></td><td><b>Already done</b> during the AP Engine deployment — only verified in Step 2</td></tr>
+      <tr><td><b>SAP firewall</b> allows 13.207.66.222 → 65.2.76.131 TCP 3357</td><td><b>Already done</b> for the AP Engine (the same server IP and port) — verified in Step 2, no new request to SAP Basis needed</td></tr>
+      <tr><td><b>SAP RFC user + password</b> (RPA / client 100)</td><td>Your laptop's <code>config\sap_config.json</code> or <code>.env</code> (<code>SAP_RFC_*</code>) — entered in Settings (Step 9)</td></tr>
+      <tr><td><b>LLM API key</b> (exactly one of OpenRouter / Anthropic / Gemini)</td><td>Your laptop's <code>.env</code> — the app cannot read PDFs without it</td></tr>
+      <tr><td><b>Admin access</b> on GitHub repo <code>poojashreeb-ship-it/Po-Contract-Validation</code></td><td>Needed for the runner (Step 7) and the secret (Step 5). It is a personal repo — the owner (PoojashreeB) must do these steps, or add you as an admin collaborator.</td></tr>
+      <tr><td><b>Node.js 20.19+</b> on the server</td><td>Probably already there for Avagama (PM2) — checked in Step 3</td></tr>
+    </table>
+    <div class="danger"><span>🚨</span><span><b>Always use PowerShell as Administrator</b> on the server (<kbd>Win</kbd> → type PowerShell → right-click → Run as Administrator). Run one block at a time and check the result before moving on.</span></div>
+  </div></div>
+</section>
+
+<!-- PHASE 1 -->
+<section class="phase">
+  <div class="phase-header"><div class="phase-number">1</div><div><h2>Phase 1 — Server checks (once)</h2><p>RDP into the RPA server</p></div></div>
+
+  <div class="step" id="s1"><div class="step-header" onclick="toggle(this)"><div class="step-num">1</div><h3>Check ports 8091 and 8210 are free</h3><span class="where">EC2 · PowerShell</span><span class="step-arrow">▼</span></div>
+  <div class="step-body">
+    <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button>netstat -ano | findstr ":8091 :8210"</pre>
+    <p><b>Expected:</b> no output. If a line shows <code>LISTENING</code>, pick another port and change it in <b>both</b> <code>deploy\ec2\po-contract.conf</code>
+    (<code>listen</code> / <code>proxy_pass</code>) and <code>.github\workflows\deploy.yml</code> (<code>PUBLIC_PORT</code> / <code>APP_PORT</code>).</p>
+    <div class="note"><span>⚠</span><span>Avoid port <b>2000</b> (Cisco SCCP — office firewalls drop web traffic on it; this is why the AP Engine moved to 8090).</span></div>
+  </div></div>
+
+  <div class="step" id="s2"><div class="step-header" onclick="toggle(this)"><div class="step-num">2</div><h3>Confirm the AP Engine setup is there to reuse (Python, SAP SDK, SAP port 3357)</h3><span class="where">EC2 · PowerShell</span><span class="step-arrow">▼</span></div>
+  <div class="step-body">
+    <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button>py -3.12 --version                                   <span class="c"># Python 3.12.x</span>
+[Environment]::GetEnvironmentVariable("SAPNWRFC_HOME","Machine")   <span class="c"># C:\sap\nwrfcsdk</span>
+Test-Path C:\sap\nwrfcsdk\lib\sapnwrfc.dll           <span class="c"># True</span>
+Test-Path C:\Windows\System32\msvcr120.dll           <span class="c"># True</span>
+nssm version                                         <span class="c"># NSSM 2.24 ...</span>
+Select-String -Path C:\nginx\nginx-1.30.0\conf\nginx.conf -Pattern "conf.d"   <span class="c"># include conf.d/*.conf;</span></pre>
+    <h4>The SAP connection on port 3357</h4>
+    <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button>Test-NetConnection 65.2.76.131 -Port 3357
+<span class="c"># Must show:  TcpTestSucceeded : True</span></pre>
+    <p>3357 is the RFC gateway of SAP instance <b>57</b> (33 + system number). The app does not take a port number: you enter system number <code>57</code>
+    in Settings (Step 9) and the SAP SDK connects to 3357 itself. Since the AP Engine on this server already talks to SAP, this should already be <b>True</b>.
+    If it is <b>False</b>, the SAP side's allow-list changed — the same request as in the AP Engine guide Step 5 applies (allow 13.207.66.222 on TCP 3357).</p>
+    <div class="info"><span>ℹ</span><span>If any of the other lines fail, redo the matching step of the AP Engine guide (Step 3 Python, Step 4 SAP SDK). Nothing new needs installing for SAP.</span></div>
+  </div></div>
+
+  <div class="step" id="s3"><div class="step-header" onclick="toggle(this)"><div class="step-num">3</div><h3>Node.js for building the frontend</h3><span class="where">EC2 · PowerShell</span><span class="step-arrow">▼</span></div>
+  <div class="step-body">
+    <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button>node -v      <span class="c"># v20.19+ or v22.12+ (Vite 8 needs one of these)</span>
+npm -v
+(Get-Command node).Source   <span class="c"># should be C:\Program Files\nodejs\node.exe</span></pre>
+    <p>If <code>node</code> is missing, older than 20.19, or installed only for one user (path under <code>C:\Users\…</code>): install the <b>Node.js 22 LTS Windows x64 .msi</b>
+    from <b>https://nodejs.org</b> (installs for all users into <code>C:\Program Files\nodejs</code>). The runner runs as SYSTEM and must find <code>node</code>/<code>npm</code> on the machine PATH.</p>
+    <div class="note"><span>⚠</span><span>Avagama uses Node too — check its version first and upgrade only within a version Avagama supports (22 LTS is the safe choice; ask the Avagama owner if unsure). Restart the PM2 apps afterwards if you upgrade.</span></div>
+  </div></div>
+
+  <div class="step" id="s4"><div class="step-header" onclick="toggle(this)"><div class="step-num">4</div><h3>Create the folders</h3><span class="where">EC2 · PowerShell</span><span class="step-arrow">▼</span></div>
+  <div class="step-body">
+    <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button>mkdir E:\POContract -Force
+mkdir E:\POContract\app -Force
+mkdir E:\POContract\logs -Force
+mkdir E:\POContract\actions-runner -Force</pre>
+  </div></div>
+</section>
+
+<!-- PHASE 2 -->
+<section class="phase">
+  <div class="phase-header"><div class="phase-number">2</div><div><h2>Phase 2 — Config (once)</h2><p>The workflow does the rest on the first push</p></div></div>
+  <div class="ok" style="display:block">
+    <b>⚡ What the push does for you.</b> On the first run, <code>deploy.yml</code> creates the venv, installs <code>pyrfc</code>, creates the NSSM service, installs the Nginx
+    site on 8091 and adds the Windows Firewall rule. Each of these is skipped on later runs.
+    <table style="margin:10px 0 4px">
+      <tr><th>Manual (once)</th><th>Automatic on every push</th></tr>
+      <tr><td>Steps 1–4 (checks, folders)<br><b>.env</b> (Step 5: GitHub secret <code>PO_ENV_FILE</code> or a file on the server)<br>
+        Step 6 (AWS security group, port 8091)<br>Step 7 (the runner)<br>Step 9 (Settings in the browser: API key + SAP)</td>
+        <td>Run the Python tests<br>Build the React frontend<br>Stop service → copy code to <code>E:\POContract\app</code><br>
+        venv + <code>pip install</code> + <code>import pyrfc</code> check<br>NSSM service, Nginx site, firewall rule (first run)<br>Start + health check (+ SAP :3357 reachability warning)</td></tr>
+    </table>
+    Order: 1–4 → 5 → 6 → 7 → 8 (push) → 9 → 10.
+  </div>
+
+  <div class="step" id="s5"><div class="step-header" onclick="toggle(this)"><div class="step-num">5</div><h3>The server .env — GitHub secret PO_ENV_FILE (recommended) or a file</h3><span class="where">GitHub or EC2</span><span class="step-arrow">▼</span></div>
+  <div class="step-body">
+    <h4>5a — Generate the API key (shared secret for the frontend)</h4>
+    <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button>py -3.12 -c "import secrets; print(secrets.token_urlsafe(32))"</pre>
+    <p>Keep this value — you'll paste it into the app's Settings in Step 9. Use a new value, not the one from your laptop.</p>
+
+    <h4>5b — The .env content</h4>
+    <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button># ── LLM — set exactly ONE (same key as on your laptop) ─────────
+OPENROUTER_API_KEY=&lt;key&gt;
+# ANTHROPIC_API_KEY=
+# GEMINI_API_KEY=
+
+# ── API key the frontend must send (value from 5a) ─────────────
+API_KEY=&lt;value from 5a&gt;
+
+# ── SAP RFC SDK (shared with the AP Engine) ─────────────────────
+SAPNWRFC_HOME=C:\sap\nwrfcsdk
+
+# ── CrewAI: no tracing prompts / telemetry in a Windows service ─
+CREWAI_TRACING_ENABLED=false
+CREWAI_DISABLE_TELEMETRY=true
+OTEL_SDK_DISABLED=true</pre>
+    <div class="info"><span>ℹ</span><span>The SAP host / system number / client / user / password are <b>not</b> read from <code>.env</code> by this app; they go into Settings in Step 9.
+    The other keys in your laptop's <code>.env</code> (<code>SAP_RFC_*</code>, <code>SAP_WEB_*</code>, <code>OUTLOOK_GRN_*</code>) are not used by the current code — you can leave them out.
+    The frontend and API are on the same origin (port 8091), so <code>FRONTEND_ORIGIN</code> is not needed.</span></div>
+
+    <h4>5c — Put it in place (pick ONE)</h4>
+    <table>
+      <tr><th>Option</th><th>How</th></tr>
+      <tr><td><b>A — GitHub secret</b> (recommended, like <code>AP_ENV_FILE</code>)</td><td>GitHub → <b>poojashreeb-ship-it/Po-Contract-Validation</b> → Settings → Secrets and variables → Actions → <b>New repository secret</b> →
+        Name <code>PO_ENV_FILE</code> → paste the whole block from 5b (one setting per line) → Add secret. Every deploy rewrites the server's <code>.env</code> from it.</td></tr>
+      <tr><td><b>B — file on the server</b></td><td>Notepad as Administrator → paste 5b → Save As <code>E:\POContract\app\.env</code>, type <b>All Files</b>, encoding <b>UTF-8</b>.
+        Then <code>dir E:\POContract\app\.env</code> to make sure it isn't <code>.env.txt</code>. Deploys never overwrite it.</td></tr>
+    </table>
+    <div class="danger"><span>🚨</span><span>Never commit <code>.env</code> or <code>config\sap_config.json</code> — both are in <code>.gitignore</code>. Note: <code>sap_config.json</code> holds the SAP password in plain text; it stays only on the server.</span></div>
+  </div></div>
+
+  <div class="step" id="s6"><div class="step-header" onclick="toggle(this)"><div class="step-num">6</div><h3>Open port 8091 in the AWS security group</h3><span class="where">AWS Console</span><span class="step-arrow">▼</span></div>
+  <div class="step-body">
+    <p>AWS Console → EC2 → Instances → <b>i-0e3ed83842b7879d7</b> (13.207.66.222) → Security → Security group → <b>Edit inbound rules</b> → <b>Add rule</b>:</p>
+    <table><tr><th>Type</th><th>Port</th><th>Source</th><th>Description</th></tr>
+      <tr><td>Custom TCP</td><td><code>8091</code></td><td>Your office IP(s) — or 0.0.0.0/0</td><td>PO Contract Agent</td></tr></table>
+    <p>Do <b>not</b> open 8210 — it stays internal. The Windows Firewall rule is added by the workflow.</p>
+    <div class="note"><span>⚠</span><span>The site is plain HTTP and protected only by the API key; anyone who can reach it can see the page. Prefer restricting the source to office IPs.</span></div>
+  </div></div>
+</section>
+
+<!-- PHASE 3 -->
+<section class="phase">
+  <div class="phase-header"><div class="phase-number">3</div><div><h2>Phase 3 — CI/CD with GitHub Actions</h2><p>Every push to master deploys automatically</p></div></div>
+
+  <div class="step" id="s7"><div class="step-header" onclick="toggle(this)"><div class="step-num">7</div><h3>Create GitHub runner #4 for PO-and-Contract-Match</h3><span class="where">GitHub + EC2 PowerShell (Admin)</span><span class="step-arrow">▼</span></div>
+  <div class="step-body">
+    <div class="info"><span>ℹ</span><span>A self-hosted runner belongs to one repository, so the AP Engine's runner can't be reused — this repo needs its own (in its own folder, as its own Windows service).</span></div>
+    <h4>7a — Get a registration token</h4>
+    <p>GitHub → <b>poojashreeb-ship-it/Po-Contract-Validation</b> → Settings → Actions → Runners → <b>New self-hosted runner</b> → Windows / x64.
+    Copy only the token after <code>--token</code> in the "Configure" block. <b>It expires after 1 hour.</b></p>
+    <p>Paste it here — the commands below fill in automatically (it stays in this page only):</p>
+    <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
+      <input id="runnerToken" placeholder="paste the runner token here" autocomplete="off" spellcheck="false"
+        style="flex:1;min-width:280px;padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:var(--code-bg);color:#79c0ff;font-family:'Cascadia Code',monospace;font-size:13px">
+      <span id="tokenState" style="font-size:12px;color:var(--muted)">no token yet</span>
+    </div>
+
+    <h4>7b — Go to the runner folder</h4>
+    <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button>cd E:\POContract\actions-runner</pre>
+
+    <h4>7c — Download and extract</h4>
+    <p>Easiest: copy the AP Engine's already-downloaded zip, if it's still there:</p>
+    <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button>Copy-Item E:\APEngine\actions-runner\actions-runner-win-x64-*.zip .
+dir *.zip</pre>
+    <p>Otherwise use the <code>Invoke-WebRequest</code> and hash-check lines from GitHub's "Download" block. Then extract (adjust the file name to what <code>dir</code> shows):</p>
+    <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button>Add-Type -AssemblyName System.IO.Compression.FileSystem
+[System.IO.Compression.ZipFile]::ExtractToDirectory("$PWD/actions-runner-win-x64-2.333.1.zip", "$PWD")</pre>
+
+    <h4>7d — Configure as a Windows service</h4>
+    <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button>./config.cmd --url https://github.com/poojashreeb-ship-it/Po-Contract-Validation --token <span class="tok">PASTE_TOKEN_HERE</span> --name po-contract-ec2 --labels po-contract --work _work --runasservice --windowslogonaccount "NT AUTHORITY\SYSTEM" --unattended</pre>
+    <div class="danger"><span>🚨</span><span><b>Do not run <code>./run.cmd</code></b>. <code>--runasservice</code> installs the runner as an auto-starting Windows service instead.</span></div>
+    <table>
+      <tr><th>Option</th><th>Why</th></tr>
+      <tr><td><code>--labels po-contract</code></td><td><code>deploy.yml</code> asks for <code>[self-hosted, windows, po-contract]</code> — the job never lands on the AP Engine or Avagama runners</td></tr>
+      <tr><td><code>"NT AUTHORITY\SYSTEM"</code></td><td>The deploy must stop/start the service, reload Nginx, add a firewall rule and write to <code>E:\POContract</code></td></tr>
+    </table>
+
+    <h4>7e — Verify</h4>
+    <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button>Get-Service actions.runner.* | Select-Object Name, Status, StartType
+<span class="c"># Expected: three or more runners — the new one *po-contract-ec2* Running / Automatic</span></pre>
+    <p>✅ GitHub → Settings → Actions → Runners → <b>po-contract-ec2</b> shows <b>Idle</b> with labels <code>self-hosted</code> <code>Windows</code> <code>X64</code> <code>po-contract</code>.</p>
+    <table>
+      <tr><th>If 7d fails with</th><th>Fix</th></tr>
+      <tr><td><i>token expired</i> / <i>404</i></td><td>New token (7a), re-run 7d</td></tr>
+      <tr><td><i>already configured</i></td><td><code>./config.cmd remove --token <span class="tok">PASTE_TOKEN_HERE</span></code>, then 7d again</td></tr>
+      <tr><td><i>Access denied</i></td><td>PowerShell is not "Run as Administrator"</td></tr>
+    </table>
+  </div></div>
+
+  <div class="step" id="s8"><div class="step-header" onclick="toggle(this)"><div class="step-num">8</div><h3>The workflow (.github/workflows/deploy.yml) and the first push</h3><span class="where">Laptop</span><span class="step-arrow">▼</span></div>
+  <div class="step-body">
+    <p>The repo already contains the updated workflow and the Nginx site file. What each step does on every push to <code>master</code>:</p>
+    <table>
+      <tr><th>#</th><th>Step</th><th>What happens on the server</th></tr>
+      <tr><td>1</td><td>Checkout</td><td>Fresh copy in the runner's <code>_work</code> folder</td></tr>
+      <tr><td>2</td><td>Run tests</td><td><code>pytest</code> in <code>E:\POContract\ci-venv</code> — a failing test stops the deploy <b>before</b> the running app is touched</td></tr>
+      <tr><td>3</td><td>Build frontend</td><td><code>npm ci</code> + <code>npm run build</code> → <code>frontend\dist</code></td></tr>
+      <tr><td>4</td><td>Stop the app</td><td><code>nssm stop po-contract-api</code>, waits, frees port 8210</td></tr>
+      <tr><td>5</td><td>Copy</td><td><code>robocopy /MIR</code> to <code>E:\POContract\app</code> — keeps <code>.env</code>, <code>.venv</code>, <code>config\</code> (SAP settings) and <code>output\</code> (reports)</td></tr>
+      <tr><td>6</td><td>Write .env</td><td>From secret <code>PO_ENV_FILE</code> if set, else keeps the server's file, else fails</td></tr>
+      <tr><td>7</td><td>Python environment</td><td>Creates <code>.venv</code> (Python 3.12) if missing, installs <code>requirements.txt</code> + <code>pyrfc==3.3.1</code>, checks <code>import pyrfc</code> loads the SAP SDK</td></tr>
+      <tr><td>8</td><td>One-time setup</td><td>NSSM service, Nginx site (<code>nginx -t</code> first; a bad file is reverted, other sites unaffected), firewall rule 8091</td></tr>
+      <tr><td>9</td><td>Start</td><td><code>nssm start po-contract-api</code> (runs even if an earlier step failed)</td></tr>
+      <tr><td>10</td><td>Health check</td><td><code>http://127.0.0.1:8091/api/openapi.json</code> must answer (fails the run otherwise); warns if SAP 65.2.76.131:3357 isn't reachable</td></tr>
+    </table>
+    <h4>Push it</h4>
+    <p>On your laptop, in the project folder (<code>.github</code> and <code>deploy</code> are new, so add them explicitly):</p>
+    <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button><span class="c"># once: point a remote at the deployment repo (the local clone's origin is the old repo)</span>
+git remote add validation https://github.com/poojashreeb-ship-it/Po-Contract-Validation.git
+git fetch validation
+
+git add .github/workflows/deploy.yml deploy/ec2/po-contract.conf docs/EC2_DEPLOYMENT_GUIDE.html
+git status        <span class="c"># make sure .env and config/sap_config.json are NOT listed</span>
+git commit -m "EC2 deployment: workflow, Nginx site on port 8091, deployment guide"
+git push validation master</pre>
+    <p>GitHub → <b>Actions</b> → "Deploy PO Contract Agent" → all steps green. The first run takes longer (CrewAI and its dependencies install twice: test venv and app venv).
+    Re-run any time with <b>Run workflow</b>.</p>
+    <div class="note"><span>⚠</span><span>The tests run on the server. If they fail on Python 3.12 but pass on your laptop (3.11), the run stops before deploying — read the "Run tests" log.</span></div>
+  </div></div>
+</section>
+
+<!-- PHASE 4 -->
+<section class="phase">
+  <div class="phase-header"><div class="phase-number">4</div><div><h2>Phase 4 — Connect SAP S/4HANA (port 3357)</h2><p>Once, in the browser</p></div></div>
+
+  <div class="step" id="s9"><div class="step-header" onclick="toggle(this)"><div class="step-num">9</div><h3>Settings: API URL, API key, SAP connection</h3><span class="where">Browser</span><span class="step-arrow">▼</span></div>
+  <div class="step-body">
+    <p>Open <b>http://13.207.66.222:8091</b> → <b>Settings</b>.</p>
+    <h4>9a — Backend connection (each browser, once)</h4>
+    <table>
+      <tr><th>Field</th><th>Value</th></tr>
+      <tr><td>API base URL</td><td><code>http://13.207.66.222:8091/api</code> &nbsp;(<b>with</b> <code>/api</code> — the default <code>http://127.0.0.1:8000</code> only works on a developer laptop)</td></tr>
+      <tr><td>Backend API key (API_KEY in .env)</td><td>The <code>API_KEY</code> value from Step 5a</td></tr>
+    </table>
+    <p>Save. These are stored in the browser (localStorage), so each user/browser enters them once.</p>
+
+    <h4>9b — SAP connection (once for everyone, stored on the server)</h4>
+    <table>
+      <tr><th>Field</th><th>Value</th><th>Note</th></tr>
+      <tr><td>SAP Application Server</td><td><code>65.2.76.131</code></td><td>the IP, not a hostname</td></tr>
+      <tr><td>SAP System Number</td><td><code>57</code></td><td>→ RFC gateway port <b>3357</b></td></tr>
+      <tr><td>SAP Client</td><td><code>100</code></td><td></td></tr>
+      <tr><td>SAP Username</td><td><code>RPA</code></td><td></td></tr>
+      <tr><td>SAP Password</td><td>the RPA password</td><td>from your laptop's <code>config\sap_config.json</code></td></tr>
+      <tr><td>SAP Gateway Host / Service (optional)</td><td><i>leave empty</i></td><td>only needed when the server name doesn't resolve; with an IP it isn't</td></tr>
+    </table>
+    <p>Save. The server writes <code>E:\POContract\app\config\sap_config.json</code>, which deploys never touch.</p>
+    <div class="info"><span>ℹ</span><span><b>Alternative:</b> copy your laptop's <code>config\sap_config.json</code> over RDP into <code>E:\POContract\app\config\</code> (create the <code>config</code> folder). No restart needed — it's read on every request.</span></div>
+  </div></div>
+
+  <div class="step" id="s10"><div class="step-header" onclick="toggle(this)"><div class="step-num">10</div><h3>End-to-end test</h3><span class="where">Browser + EC2</span><span class="step-arrow">▼</span></div>
+  <div class="step-body">
+    <h4>10a — SAP lookup only (fast, no LLM)</h4>
+    <p>On the server, call the API's SAP lookup with a known PO number:</p>
+    <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button>$key = "&lt;API_KEY from Step 5a&gt;"
+Invoke-RestMethod http://127.0.0.1:8091/api/sap/po-record -Method Post -Headers @{ "X-API-Key" = $key } `
+  -ContentType "application/json" -Body '{"po_number":"&lt;a PO number in A4F&gt;"}'</pre>
+    <p><b>Expected:</b> <code>po_number</code>, <code>vendor_name</code>, <code>contract_price</code>, <code>payment_terms</code> … from SAP. That proves the RFC path on port 3357 works end to end.</p>
+    <h4>10b — Full validation</h4>
+    <p>Upload a PO PDF and a contract PDF (e.g. <code>input\sample_po.pdf</code> / <code>sample_contract.pdf</code> from your laptop) → <b>Validate</b>. It can take a few minutes (two CrewAI crews + SAP).
+    You get the SAP and contract validation results and a downloadable PDF report; a copy is kept in <code>E:\POContract\app\output\</code>.</p>
+  </div></div>
+</section>
+
+<!-- MANUAL -->
+<section class="phase" id="manual">
+  <div class="phase-header"><div class="phase-number">M</div><div><h2>Manual way — deploy by hand</h2><p>For troubleshooting, or before the runner exists. The workflow does all of this automatically.</p></div></div>
+  <div class="step"><div class="step-header" onclick="toggle(this)"><div class="step-num">M</div><h3>Clone, venv, test run, service, Nginx, firewall</h3><span class="where">EC2 · PowerShell (Admin)</span><span class="step-arrow">▼</span></div>
+  <div class="step-body collapsed">
+    <h4>M1 — Code + frontend build</h4>
+    <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button>git clone https://github.com/poojashreeb-ship-it/Po-Contract-Validation.git E:\POContract\src
+robocopy E:\POContract\src E:\POContract\app /E /XD .git
+cd E:\POContract\app\frontend
+npm ci
+npm run build</pre>
+    <p>Then create <code>E:\POContract\app\.env</code> (Step 5b).</p>
+    <h4>M2 — Python environment + SAP check</h4>
+    <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button>cd E:\POContract\app
+py -3.12 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install --upgrade pip
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt pyrfc==3.3.1
+.\.venv\Scripts\python.exe -c "import pyrfc; print('pyrfc', pyrfc.__version__)"</pre>
+    <p><i>"pyrfc 3.3.1 is yanked"</i> is expected (same as the AP Engine).</p>
+    <h4>M3 — Test run by hand</h4>
+    <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button>.\.venv\Scripts\python.exe -m uvicorn api.main:app --host 127.0.0.1 --port 8210</pre>
+    <p>Browser on the server: <b>http://127.0.0.1:8210/docs</b> → the API page. <kbd>Ctrl</kbd>+<kbd>C</kbd> to stop.</p>
+    <h4>M4 — Windows service</h4>
+    <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button>nssm install po-contract-api "E:\POContract\app\.venv\Scripts\python.exe" "-m uvicorn api.main:app --host 127.0.0.1 --port 8210"
+nssm set po-contract-api AppDirectory "E:\POContract\app"
+nssm set po-contract-api AppEnvironmentExtra "SAPNWRFC_HOME=C:\sap\nwrfcsdk" "PYTHONIOENCODING=utf-8" "PYTHONUTF8=1"
+nssm set po-contract-api AppStdout "E:\POContract\logs\po-contract.out.log"
+nssm set po-contract-api AppStderr "E:\POContract\logs\po-contract.err.log"
+nssm set po-contract-api AppRotateFiles 1
+nssm set po-contract-api AppRotateBytes 10485760
+nssm set po-contract-api Start SERVICE_AUTO_START
+nssm set po-contract-api DisplayName "PO Contract Agent (SAP PO validation)"
+nssm start po-contract-api
+nssm status po-contract-api</pre>
+    <h4>M5 — Nginx site + firewall</h4>
+    <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button>Copy-Item E:\POContract\app\deploy\ec2\po-contract.conf C:\nginx\nginx-1.30.0\conf\conf.d\po-contract.conf
+cd C:\nginx\nginx-1.30.0
+.\nginx.exe -t
+.\nginx.exe -s reload          <span class="c"># if "Access is denied": nssm restart nginx</span>
+New-NetFirewallRule -DisplayName "PO Contract 8091" -Direction Inbound -Protocol TCP -LocalPort 8091 -Action Allow
+Invoke-WebRequest http://localhost:8091/api/openapi.json -UseBasicParsing | Select-Object StatusCode   <span class="c"># 200</span></pre>
+    <div class="note"><span>⚠</span><span>Never edit <code>nginx.conf</code> itself — only the file in <code>conf.d</code>. <code>nginx -t</code> must say <b>test is successful</b> before reloading, otherwise the AP Engine and Avagama sites are at risk.</span></div>
+  </div></div>
+</section>
+
+<!-- CHECKLIST -->
+<section class="phase" id="checklist">
+  <div class="phase-header"><div class="phase-number">✓</div><div><h2>Final checklist</h2><p>Ticks are remembered in this browser</p></div></div>
+  <div class="step"><div class="step-header" onclick="toggle(this)"><div class="step-num">✓</div><h3>Go-live checklist</h3><span class="step-arrow">▼</span></div>
+  <div class="step-body">
+    <div class="bar"><div id="bar"></div></div><div class="bar-label" id="barLabel"></div>
+    <ul class="checklist" id="cl">
+      <li><input type="checkbox"><span><code>netstat</code> shows 8091 / 8210 free (before the first deploy)</span></li>
+      <li><input type="checkbox"><span><code>Test-NetConnection 65.2.76.131 -Port 3357</code> → <b>True</b></span></li>
+      <li><input type="checkbox"><span><code>node -v</code> ≥ 20.19 for all users</span></li>
+      <li><input type="checkbox"><span><code>PO_ENV_FILE</code> secret (or server <code>.env</code>) with an LLM key and <code>API_KEY</code></span></li>
+      <li><input type="checkbox"><span>AWS security group allows TCP 8091</span></li>
+      <li><input type="checkbox"><span>Runner <b>po-contract-ec2</b> is <b>Idle</b> in GitHub</span></li>
+      <li><input type="checkbox"><span>Push to <code>master</code> → Actions run <b>green</b>, no SAP warning in the health check</span></li>
+      <li><input type="checkbox"><span><code>nssm status po-contract-api</code> → <b>SERVICE_RUNNING</b></span></li>
+      <li><input type="checkbox"><span><b>http://13.207.66.222:8091</b> opens from your laptop; Settings saved (API URL with <code>/api</code>, API key, SAP 65.2.76.131 / 57 / 100 / RPA)</span></li>
+      <li><input type="checkbox"><span><code>/api/sap/po-record</code> (Step 10a) returns a PO record from SAP</span></li>
+      <li><input type="checkbox"><span>Validate with a PO + contract PDF → results + PDF report</span></li>
+      <li><input type="checkbox"><span>AP Engine still works: <code>http://13.207.66.222:8090</code>; Avagama <code>:3000</code> / <code>:5000</code> unchanged</span></li>
+      <li><input type="checkbox"><span>Reboot test: po-contract-api, nginx and all runners come back on their own</span></li>
+    </ul>
+  </div></div>
+</section>
+
+<!-- OPS -->
+<section class="phase" id="ops">
+  <div class="phase-header"><div class="phase-number">⚙</div><div><h2>Day-to-day commands</h2><p>On the server, PowerShell (Admin)</p></div></div>
+  <div class="step"><div class="step-header" onclick="toggle(this)"><div class="step-num">R</div><h3>Service, logs, redeploy</h3><span class="step-arrow">▼</span></div>
+  <div class="step-body">
+    <pre><button class="copy-btn" onclick="copyCode(this)">Copy</button>nssm status  po-contract-api
+nssm restart po-contract-api       <span class="c"># after editing E:\POContract\app\.env</span>
+nssm stop    po-contract-api
+nssm start   po-contract-api
+
+<span class="c"># live log (Ctrl+C to stop following)</span>
+Get-Content E:\POContract\logs\po-contract.err.log -Tail 50 -Wait
+
+<span class="c"># is the API up (through Nginx)?</span>
+Invoke-WebRequest http://127.0.0.1:8091/api/openapi.json -UseBasicParsing | Select-Object StatusCode
+
+<span class="c"># SAP reachable?</span>
+Test-NetConnection 65.2.76.131 -Port 3357</pre>
+    <table>
+      <tr><th>Task</th><th>How</th></tr>
+      <tr><td>Redeploy without a code change</td><td>GitHub → Actions → Deploy PO Contract Agent → <b>Run workflow</b></td></tr>
+      <tr><td>Roll back</td><td><code>git revert &lt;bad commit&gt;</code> → <code>git push validation master</code></td></tr>
+      <tr><td>Change LLM key / API key</td><td>Edit the <code>PO_ENV_FILE</code> secret → Run workflow (or edit the server <code>.env</code> → <code>nssm restart po-contract-api</code>)</td></tr>
+      <tr><td>Change SAP user / password</td><td>App → Settings → SAP → Save (no restart)</td></tr>
+      <tr><td>Clean up old reports</td><td><code>E:\POContract\app\output\</code> — JSON + PDF per validation</td></tr>
+    </table>
+  </div></div>
+</section>
+
+<!-- TROUBLE -->
+<section class="phase" id="trouble">
+  <div class="phase-header"><div class="phase-number">!</div><div><h2>Troubleshooting</h2><p>Symptom → cause → fix</p></div></div>
+  <div class="step"><div class="step-header" onclick="toggle(this)"><div class="step-num">?</div><h3>Common problems</h3><span class="step-arrow">▼</span></div>
+  <div class="step-body">
+    <table>
+      <tr><th>Symptom</th><th>Cause</th><th>Fix</th></tr>
+      <tr><td>App: <i>"The API base URL in Settings doesn't point to the backend"</i></td><td>API URL is missing <code>/api</code> or still <code>127.0.0.1:8000</code></td><td>Settings → <code>http://13.207.66.222:8091/api</code></td></tr>
+      <tr><td>App: <i>"Invalid API key — check Settings"</i></td><td>Key in Settings ≠ <code>API_KEY</code> in the server <code>.env</code></td><td>Paste the exact value; after changing <code>.env</code> restart the service</td></tr>
+      <tr><td><i>SAP is not configured yet</i></td><td>No <code>config\sap_config.json</code> on the server</td><td>Step 9b</td></tr>
+      <tr><td><i>SAP RFC is not available on this server</i></td><td><code>pyrfc</code> not installed, or SDK DLLs not found</td><td><code>nssm get po-contract-api AppEnvironmentExtra</code> must show <code>SAPNWRFC_HOME</code>; check Step 2; re-run the workflow</td></tr>
+      <tr><td><i>Could not reach SAP: partner '65.2.76.131:3357' not reached</i></td><td>Network/firewall between server and SAP</td><td><code>Test-NetConnection 65.2.76.131 -Port 3357</code> must be True — ask SAP Basis to allow 13.207.66.222</td></tr>
+      <tr><td><i>SAP authentication failed</i></td><td>Wrong user/password/client, or RPA locked</td><td>Fix in Settings; ask Basis to unlock (SU01)</td></tr>
+      <tr><td><i>PO … was not found in SAP</i></td><td>The PO number read from the PDF doesn't exist in A4F client 100</td><td>Check the PO in ME23N; the error shows the number read from the document</td></tr>
+      <tr><td><i>Validation failed on the server</i> (500)</td><td>LLM error: missing/invalid key, quota, model unavailable</td><td>Read <code>po-contract.err.log</code>; fix the LLM key in <code>.env</code></td></tr>
+      <tr><td>Browser: <b>502 Bad Gateway</b> on <code>/api</code></td><td>Service not running</td><td><code>nssm status po-contract-api</code>; read the err log</td></tr>
+      <tr><td>Browser: <b>504 Gateway Timeout</b> on Validate</td><td>Validation took over 600 s</td><td>Raise <code>proxy_read_timeout</code> in <code>deploy\ec2\po-contract.conf</code> and push</td></tr>
+      <tr><td>Browser: <b>413 Request Entity Too Large</b></td><td>PDFs over 25 MB together</td><td>Raise <code>client_max_body_size</code> in the conf and push</td></tr>
+      <tr><td>Blank page / 403 / 404 on <code>/</code></td><td><code>frontend\dist</code> missing (build failed)</td><td>Check the "Build frontend" step log; <code>dir E:\POContract\app\frontend\dist</code></td></tr>
+      <tr><td>Service starts, then stops; log shows <i>UnicodeEncodeError</i></td><td>CrewAI prints emoji to a cp1252 console</td><td><code>PYTHONIOENCODING=utf-8</code> / <code>PYTHONUTF8=1</code> in the service env (M4)</td></tr>
+      <tr><td>Workflow: <i>npm is not recognized</i> / Vite needs newer Node</td><td>Node missing for SYSTEM or too old</td><td>Step 3, then restart the runner service</td></tr>
+      <tr><td>Workflow: <i>py is not recognized</i></td><td>Python not installed for all users</td><td>AP Engine guide Step 3; restart the runner service</td></tr>
+      <tr><td>Workflow stuck in <b>Queued</b></td><td>Runner offline or label mismatch</td><td>Runner must be Idle with label <code>po-contract</code></td></tr>
+      <tr><td>Workflow: <i>nginx -t failed … reverted</i></td><td>Error in <code>po-contract.conf</code></td><td>Run <code>.\nginx.exe -t</code> in <code>C:\nginx\nginx-1.30.0</code> to see the line; other sites kept running</td></tr>
+      <tr><td>Workflow: <i>No .env</i></td><td>Neither secret nor server file</td><td>Step 5c</td></tr>
+    </table>
+  </div></div>
+</section>
+
+</main>
+
+<script>
+  function toggle(h) {
+    const b = h.nextElementSibling, a = h.querySelector('.step-arrow');
+    const collapsed = b.classList.toggle('collapsed');
+    a.style.transform = collapsed ? 'rotate(-90deg)' : 'rotate(0deg)';
+  }
+  function copyCode(btn) {
+    const text = btn.parentElement.innerText.replace(/^Copy\n?/, '').trim();
+    navigator.clipboard.writeText(text).then(() => {
+      btn.textContent = 'Copied!'; btn.style.color = '#22c55e';
+      setTimeout(() => { btn.textContent = 'Copy'; btn.style.color = ''; }, 1800);
+    });
+  }
+  // Runner token box (Step 7): fills every command; kept for this tab only.
+  const tokIn = document.getElementById('runnerToken');
+  function applyToken() {
+    const v = (tokIn.value || '').trim();
+    document.querySelectorAll('.tok').forEach(s => { s.textContent = v || 'PASTE_TOKEN_HERE'; s.style.color = v ? '#22c55e' : ''; });
+    document.getElementById('tokenState').textContent = v ? '✓ filled into the commands below' : 'no token yet';
+    try { sessionStorage.setItem('poRunnerToken', v); } catch (e) {}
+  }
+  if (tokIn) {
+    try { tokIn.value = sessionStorage.getItem('poRunnerToken') || ''; } catch (e) {}
+    tokIn.addEventListener('input', applyToken);
+    applyToken();
+  }
+  const boxes = document.querySelectorAll('#cl input');
+  function progress() {
+    const done = [...boxes].filter(b => b.checked).length;
+    document.getElementById('bar').style.width = Math.round(done / boxes.length * 100) + '%';
+    document.getElementById('barLabel').textContent = done + ' / ' + boxes.length + ' completed';
+    try { localStorage.setItem('poContractChecklist', JSON.stringify([...boxes].map(b => b.checked))); } catch (e) {}
+  }
+  try { (JSON.parse(localStorage.getItem('poContractChecklist')) || []).forEach((v, i) => { if (boxes[i]) boxes[i].checked = v; }); } catch (e) {}
+  boxes.forEach(b => b.addEventListener('change', progress));
+  progress();
+</script>
+</body>
+</html>

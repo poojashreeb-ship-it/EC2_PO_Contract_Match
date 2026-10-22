@@ -24,7 +24,9 @@ jobs:
       SERVICE: po-contract-api
       APP_PORT: '8210'
       PUBLIC_PORT: '8091'
-      PY_VERSION: '3.12'
+      # Python 3.12 is installed for Administrator only, so the py launcher
+      # (running as SYSTEM) can't find it; the AP Engine's venv uses the same one.
+      PYTHON_EXE: C:\Users\Administrator\AppData\Local\Programs\Python\Python312\python.exe
       SAPNWRFC_HOME: C:\sap\nwrfcsdk
       NGINX_DIR: C:\nginx\nginx-1.30.0
     steps:
@@ -34,7 +36,7 @@ jobs:
       # dependencies aren't reinstalled from scratch on every run.
       - name: Run tests
         run: |
-          if (!(Test-Path $env:CI_VENV)) { py -$env:PY_VERSION -m venv $env:CI_VENV }
+          if (!(Test-Path $env:CI_VENV)) { & $env:PYTHON_EXE -m venv $env:CI_VENV }
           & "$env:CI_VENV\Scripts\python.exe" -m pip install -q -r requirements.txt
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & "$env:CI_VENV\Scripts\python.exe" -m pytest -q
@@ -84,7 +86,7 @@ jobs:
       - name: Python environment
         working-directory: ${{ env.APP_DIR }}
         run: |
-          if (!(Test-Path .venv)) { py -$env:PY_VERSION -m venv .venv }
+          if (!(Test-Path .venv)) { & $env:PYTHON_EXE -m venv .venv }
           .venv\Scripts\python.exe -m pip install -q -r requirements.txt pyrfc==3.3.1
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $env:PATH = "$env:SAPNWRFC_HOME\lib;$env:PATH"
